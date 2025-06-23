@@ -43,12 +43,12 @@ from .core.tab import Tab, make_iife
 from .core.element import DictPosition, Element as CoreElement, calc_center
 
 
-
 def read_file(path):
     with open(path, 'r', encoding="utf-8") as fp:
         content = fp.read()
         return content
-    
+
+
 def load_script_if_js_file(script):
     if script is None:
         return None
@@ -56,20 +56,22 @@ def load_script_if_js_file(script):
         return read_file(script)
     else:
         return script
-    
+
+
 class Wait:
     SHORT = 4
     LONG = 8
     VERY_LONG = 16
 
-    
-def make_element(driver:'Driver', current_tab:Tab, _parent_tab:'BrowserTab',  internal_elem:CoreElement):
+
+def make_element(driver: 'Driver', current_tab: Tab, _parent_tab: 'BrowserTab',  internal_elem: CoreElement):
     if not internal_elem:
         return None
     if internal_elem._node.node_name == "IFRAME":
         return create_iframe_element(driver, current_tab, _parent_tab, internal_elem)
     else:
         return Element(driver, current_tab, _parent_tab,  internal_elem)
+
 
 def get_all_parents(node):
     if node is None:
@@ -84,17 +86,18 @@ def get_all_parents(node):
 
     return parents
 
+
 def perform_get_element_at_point(x: int, y: int, child_selector: Optional[str], wait: Optional[int], driver: 'Driver') -> Optional['Element']:
     """
     Gets the element at the specified coordinates and optionally finds a child element matching the selector.
-    
+
     Args:
         x: X coordinate
         y: Y coordinate 
         child_selector: Optional CSS selector to find child element
         wait: Optional timeout to wait for child element
         driver: Driver instance to create elements with
-        
+
     Returns:
         Element at coordinates or matching child element
     """
@@ -112,7 +115,7 @@ def perform_get_element_at_point(x: int, y: int, child_selector: Optional[str], 
             if wait:
                 now = time.time()
                 while not selected_el:
-                    elem = driver._tab.get_element_at_point(x, y, None) 
+                    elem = driver._tab.get_element_at_point(x, y, None)
                     el = driver._make_element(elem) if elem else None
                     if el:
                         selected_el = el.select(child_selector, wait=None)
@@ -122,7 +125,9 @@ def perform_get_element_at_point(x: int, y: int, child_selector: Optional[str], 
                 return selected_el
 
     return el
-def perform_select_options(select_element:'Element', value, index, label):
+
+
+def perform_select_options(select_element: 'Element', value, index, label):
     if value is None and index is None and label is None:
         raise ValueError("One of 'value', 'index', or 'label' must be provided.")
     if value is not None:
@@ -145,21 +150,22 @@ def perform_select_options(select_element:'Element', value, index, label):
             select_element.select(f"option[label='{label}']")._elem.perform_select_option()
 
 
-
 def merge_rects(el_rect, tab_rect, ):
-        el_rect.x = tab_rect.x + el_rect.x
-        el_rect.y = tab_rect.y + el_rect.y
-        el_rect.left = tab_rect.left + el_rect.left
-        el_rect.top = tab_rect.top + el_rect.top
-        return el_rect
+    el_rect.x = tab_rect.x + el_rect.x
+    el_rect.y = tab_rect.y + el_rect.y
+    el_rect.left = tab_rect.left + el_rect.left
+    el_rect.top = tab_rect.top + el_rect.top
+    return el_rect
+
 
 class Element:
-    def __init__(self, driver:'Driver',  tab: Tab, _parent_tab: 'BrowserTab', elem: CoreElement):
+    def __init__(self, driver: 'Driver',  tab: Tab, _parent_tab: 'BrowserTab', elem: CoreElement):
         self._driver = driver
         self._parent_tab = _parent_tab
         self._tab = tab
         self._elem: CoreElement = elem
         self.attributes = self._elem.attrs
+
     @property
     def text(self):
         return self.run_js("(el) => el.innerText || el.textContent")
@@ -211,23 +217,21 @@ class Element:
     #     Returns:
     #         dict: A dictionary containing the JavaScript properties of the element.
     #     """
-    #     return self._elem.get_js_attributes()    
-
+    #     return self._elem.get_js_attributes()
 
     def _get_bounding_rect_with_iframe_offset(self):
         self_rect = self.get_bounding_rect()
         parent_rect = self._parent_tab._get_bounding_rect_with_iframe_offset()
-        
-        
+
         rect = merge_rects(parent_rect, self_rect, )
 
         # FIX RECT
         rect.width = self_rect.width
         rect.height = self_rect.height
         rect.center = calc_center(rect)
-        
+
         return rect
-    
+
     def get_bounding_rect(self, absolute=False):
         return self._elem.get_position(absolute)
 
@@ -241,7 +245,7 @@ class Element:
                 return rect
             # Let it load
             sleep(0.75)
-            return  None
+            return None
         rect = wait_for_result(has_height, max(wait, Wait.LONG))
         if rect is None:
             raise DriverException("Shadow root cannot be found because the element has no height.")
@@ -251,7 +255,7 @@ class Element:
             elem = self._tab.get_element_at_point(x, y, wait)
             return self._make_element(elem) if elem else None
         except:
-          return self._make_element(self._elem.first_shadow_root)
+            return self._make_element(self._elem.first_shadow_root)
 
     def select(self, selector: str, wait: Optional[int] = Wait.SHORT) -> "Element":
         elem = self._elem.query_selector(selector, wait)
@@ -267,14 +271,15 @@ class Element:
         self, selector: str, wait: Optional[int] = Wait.SHORT
     ) -> Union["IframeElement", "IframeTab"]:
         return self.select(selector, wait)
+
     def click(
-        self, 
-        selector: Optional[str] = None, 
+        self,
+        selector: Optional[str] = None,
         wait: Optional[int] = Wait.SHORT,
         skip_move: bool = False
     ) -> None:
         """Clicks the element
-        
+
         Args:
             selector: Optional selector to find element
             wait: Maximum time to wait for element
@@ -295,30 +300,31 @@ class Element:
     def get_element_at_point(
         self,
         x: int,
-        y: int, 
+        y: int,
         child_selector: Optional[str] = None,
         wait: Optional[int] = Wait.SHORT,
     ) -> 'Element':
         return perform_get_element_at_point(
-            *self._get_x_y_with_iframe_offset(x,y),
-            child_selector=child_selector, 
+            *self._get_x_y_with_iframe_offset(x, y),
+            child_selector=child_selector,
             wait=wait,
             driver=self._driver
         )
 
-    def _get_x_y_with_iframe_offset(self,x,y):
+    def _get_x_y_with_iframe_offset(self, x, y):
         rect = self._get_bounding_rect_with_iframe_offset()
-        return (x+rect.x,y+rect.y)
-    
-    def click_at_point(self, x: int, y:int, skip_move: bool = False):
+        return (x+rect.x, y+rect.y)
+
+    def click_at_point(self, x: int, y: int, skip_move: bool = False):
         if self._driver.is_human_mode_enabled:
-            with_human_mode(self._driver, lambda: self._driver._cursor.click(self._get_x_y_with_iframe_offset(x,y), skip_move=skip_move))
+            with_human_mode(self._driver, lambda: self._driver._cursor.click(
+                self._get_x_y_with_iframe_offset(x, y), skip_move=skip_move))
         else:
-            self._tab.click_at_point(*self._get_x_y_with_iframe_offset(x,y))
+            self._tab.click_at_point(*self._get_x_y_with_iframe_offset(x, y))
 
     def move_mouse_here(self, is_jump: bool = False):
         """Moves mouse cursor to this element
-        
+
         Args:
             is_jump: If True, instantly jumps to element instead of smooth movement
         """
@@ -326,17 +332,18 @@ class Element:
 
     def move_mouse_to_point(self, x: int, y: int, is_jump: bool = False):
         """Moves mouse cursor to specified coordinates
-        
+
         Args:
             x: X coordinate
             y: Y coordinate
             is_jump: If True, instantly jumps to coordinates instead of smooth movement
         """
-        with_human_mode(self._driver, lambda: self._driver._cursor.move_mouse_to_point(*self._get_x_y_with_iframe_offset(x,y), is_jump=is_jump))
+        with_human_mode(self._driver, lambda: self._driver._cursor.move_mouse_to_point(
+            *self._get_x_y_with_iframe_offset(x, y), is_jump=is_jump))
 
     def move_mouse_to_element(self, selector: str, wait: Optional[int] = Wait.SHORT, is_jump: bool = False):
         """Moves mouse cursor to element matching selector
-        
+
         Args:
             selector: CSS selector to find element
             wait: Maximum time to wait for element 
@@ -350,14 +357,16 @@ class Element:
             elem.move_mouse_here(is_jump=is_jump)
             return True
 
-    def mouse_press(self, x: int, y:int):
-        with_human_mode(self._driver, lambda: self._driver._cursor.mouse_press(*self._get_x_y_with_iframe_offset(x,y)))
+    def mouse_press(self, x: int, y: int):
+        with_human_mode(self._driver, lambda: self._driver._cursor.mouse_press(*self._get_x_y_with_iframe_offset(x, y)))
 
-    def mouse_release(self, x: int, y:int):
-        with_human_mode(self._driver, lambda: self._driver._cursor.mouse_release(*self._get_x_y_with_iframe_offset(x,y)))
+    def mouse_release(self, x: int, y: int):
+        with_human_mode(self._driver, lambda: self._driver._cursor.mouse_release(
+            *self._get_x_y_with_iframe_offset(x, y)))
 
     def mouse_press_and_hold(self, x: int, y: int, release_condition: Optional[Callable[[], bool]] = None, release_condition_check_interval: float = 0.5, click_duration: Optional[float] = None):
-        with_human_mode(self._driver, lambda: self._driver._cursor.mouse_press_and_hold(*self._get_x_y_with_iframe_offset(x,y), release_condition=release_condition, release_condition_check_interval=release_condition_check_interval, click_duration=click_duration))
+        with_human_mode(self._driver, lambda: self._driver._cursor.mouse_press_and_hold(*self._get_x_y_with_iframe_offset(x, y),
+                        release_condition=release_condition, release_condition_check_interval=release_condition_check_interval, click_duration=click_duration))
 
     def drag_and_drop_to(self, to_point: Union[tuple[int, int], 'Element']) -> None:
         """
@@ -370,8 +379,9 @@ class Element:
         Returns:
             None
         """
-        if isinstance(to_point, (list,tuple)):
-            with_human_mode(self._driver, lambda: self._driver._cursor.drag_and_drop(self, *self._get_x_y_with_iframe_offset(*to_point)))
+        if isinstance(to_point, (list, tuple)):
+            with_human_mode(self._driver, lambda: self._driver._cursor.drag_and_drop(
+                self, *self._get_x_y_with_iframe_offset(*to_point)))
         else:
             with_human_mode(self._driver, lambda: self._driver._cursor.drag_and_drop(self, to_point))
 
@@ -418,7 +428,6 @@ class Element:
             self.wait_for_element(selector, wait).focus()
         else:
             self._elem.focus()
-
 
     def set_value(self, value: str) -> None:
         """
@@ -483,13 +492,13 @@ class Element:
 
         Returns:
             None
-            
+
         Example:
             driver.get("https://www.digitaldutch.com/unitconverter/length.htm")
             driver.select('#calculator').select_option("select#selectFrom", index=17)
             driver.prompt()            
         """
-        select_element = self.wait_for_element(selector, wait)        
+        select_element = self.wait_for_element(selector, wait)
         perform_select_options(select_element, value, index, label)
 
     def is_element_present(
@@ -638,7 +647,7 @@ class Element:
         if not os.path.exists(file_path):
             raise FileNotFoundError(f"File not found: {file_path}")
         if not os.path.isfile(file_path):
-            raise ValueError(f"Path is not a file: {file_path}")        
+            raise ValueError(f"Path is not a file: {file_path}")
         self._elem.send_file(file_path)
 
     def upload_multiple_files(self, file_paths: List[str]) -> None:
@@ -672,25 +681,23 @@ class Element:
     def __repr__(self):
         return self._elem.__repr__()
 
-    def run_js(self, script: str, args: Optional[any]=None) -> Any:
+    def run_js(self, script: str, args: Optional[any] = None) -> Any:
         script = load_script_if_js_file(script)
         self._elem.raise_if_disconnected()
 
         try:
-          return self._elem.apply(script,args=args)
+            return self._elem.apply(script, args=args)
         except Exception as e:
-          raise
-
-
+            raise
 
 
 class BrowserTab:
-    def __init__(self, config, _tab_value:Tab, _parent_tab:'BrowserTab', _driver:'Driver',_browser:Browser):
+    def __init__(self, config, _tab_value: Tab, _parent_tab: 'BrowserTab', _driver: 'Driver', _browser: Browser):
         self.config = config
         self._tab_value = _tab_value
-        self._browser:Browser = _browser
-        self._parent_tab:Browser = _parent_tab 
-        self._driver:Browser = _driver 
+        self._browser: Browser = _browser
+        self._parent_tab: Browser = _parent_tab
+        self._driver: Browser = _driver
         self._native_fetch_name = None
         self.responses = Responses(self)
 
@@ -730,32 +737,29 @@ class BrowserTab:
     def local_storage(self):
         return LocalStorage(self)
 
-
     def _update_targets(self):
         return self._browser.update_targets()
-
 
     def prevent_fetch_spying(self) -> Any:
         rand = generate_random_string()
         self.run_on_new_document(f"window.{rand} = window.fetch")
         self._native_fetch_name = rand
 
-    def run_js(self, script: str, args: Optional[any]=None) -> Any:
+    def run_js(self, script: str, args: Optional[any] = None) -> Any:
         script = load_script_if_js_file(script)
         # We will automatically run the script in an Immediately Invoked Function Expression (IIFE)
-        return self._tab.evaluate(script,args=args,await_promise=True)
+        return self._tab.evaluate(script, args=args, await_promise=True)
 
     def run_on_new_document(
         self, script
     ) -> None:
         if script:
             self.run_cdp_command(cdp.page.enable())
-            
+
             return self.run_cdp_command(cdp.page.add_script_to_evaluate_on_new_document(make_iife(load_script_if_js_file(script))))
 
     def run_cdp_command(self, command) -> Any:
         return self._tab.run_cdp_command(command)
-
 
     def before_request_sent(self, handler: Callable[[str, cdp.network.Request, cdp.network.RequestWillBeSent], None]):
         """
@@ -829,29 +833,42 @@ class BrowserTab:
             ```
         """
         self._tab.after_response_received(handler)
-        
+
     def collect_response(self, request):
         try:
-            body,base64Encoded = self.run_cdp_command(cdp.network.get_response_body(request))
+            body, base64Encoded = self.run_cdp_command(cdp.network.get_response_body(request))
             response = Response(
-                    request_id=request,
-                    content=body,
-                    is_base_64=base64Encoded,
-                )
-                
+                request_id=request,
+                content=body,
+                is_base_64=base64Encoded,
+            )
+
         except ChromeException as e:
-          if "No data found for resource" in e.message:
-            response = Response(
+            if "No data found for resource" in e.message:
+                response = Response(
                     request_id=request,
                     content=None,
                     is_base_64=False,
                 )
-            
-        return response
-    
-    def collect_responses(self, request_ids):
-        return [self.collect_response(request_id) for request_id in request_ids]    
+            else:
+                # Handle other ChromeExceptions
+                response = Response(
+                    request_id=request,
+                    content=None,
+                    is_base_64=False,
+                )
+        except Exception as e:
+            # Handle any other exceptions (this was the missing part!)
+            response = Response(
+                request_id=request,
+                content=None,
+                is_base_64=False,
+            )
 
+        return response
+
+    def collect_responses(self, request_ids):
+        return [self.collect_response(request_id) for request_id in request_ids]
 
     def get_js_variable(self, variable_name: str) -> Any:
         return self._tab.js_dumps(variable_name)
@@ -859,19 +876,17 @@ class BrowserTab:
     def select(self, selector: str, wait: Optional[int] = Wait.SHORT) -> Element:
         elem = self._tab.select(selector, timeout=wait)
         return self._make_element(elem) if elem else None
-    
 
     def select_all(
         self, selector: str, wait: Optional[int] = Wait.SHORT
     ) -> List[Element]:
         elems = self._tab.select_all(selector, timeout=wait)
         return [self._make_element(e) for e in elems]
-    
+
     def count(
         self, selector: str, wait: Optional[int] = Wait.SHORT
     ) -> int:
         return self._tab.count_select(selector, timeout=wait)
-
 
     def select_iframe(
         self, selector: str, wait: Optional[int] = Wait.SHORT
@@ -917,14 +932,14 @@ class BrowserTab:
     def get_element_at_point(
         self,
         x: int,
-        y: int, 
+        y: int,
         child_selector: Optional[str] = None,
         wait: Optional[int] = Wait.SHORT,
     ) -> Element:
         return perform_get_element_at_point(
             x=x,
             y=y,
-            child_selector=child_selector, 
+            child_selector=child_selector,
             wait=wait,
             driver=self
         )
@@ -932,29 +947,31 @@ class BrowserTab:
     def _get_driver(self):
         return self
 
-    def _get_x_y_with_iframe_offset(self,x,y):
+    def _get_x_y_with_iframe_offset(self, x, y):
         rect = self._get_bounding_rect_with_iframe_offset()
-        return (x+rect.x,y+rect.y)
+        return (x+rect.x, y+rect.y)
 
-    def click_at_point(self, x: int, y:int, skip_move: bool = False):
-        if self.is_human_mode_enabled: 
-            with_human_mode(self, lambda: self._get_driver()._cursor.click(self._get_x_y_with_iframe_offset(x,y), skip_move=skip_move))
+    def click_at_point(self, x: int, y: int, skip_move: bool = False):
+        if self.is_human_mode_enabled:
+            with_human_mode(self, lambda: self._get_driver()._cursor.click(
+                self._get_x_y_with_iframe_offset(x, y), skip_move=skip_move))
         else:
-            self._tab.click_at_point(*self._get_x_y_with_iframe_offset(x,y))
+            self._tab.click_at_point(*self._get_x_y_with_iframe_offset(x, y))
 
     def move_mouse_to_point(self, x: int, y: int, is_jump: bool = False):
         """Moves mouse cursor to specified coordinates
-        
+
         Args:
             x: X coordinate
             y: Y coordinate
             is_jump: If True, instantly jumps to coordinates instead of smooth movement
         """
-        with_human_mode(self._get_driver(), lambda: self._get_driver()._cursor.move_mouse_to_point(*self._get_x_y_with_iframe_offset(x,y), is_jump=is_jump))
+        with_human_mode(self._get_driver(), lambda: self._get_driver()._cursor.move_mouse_to_point(
+            *self._get_x_y_with_iframe_offset(x, y), is_jump=is_jump))
 
     def move_mouse_to_element(self, selector: str, wait: Optional[int] = Wait.SHORT, is_jump: bool = False):
         """Moves mouse cursor to element matching selector
-        
+
         Args:
             selector: CSS selector to find element
             wait: Maximum time to wait for element
@@ -967,53 +984,52 @@ class BrowserTab:
         else:
             elem.move_mouse_here(is_jump=is_jump)
             return True
-        
-    def mouse_press(self, x: int, y:int):
-        with_human_mode(self._get_driver(), lambda: self._get_driver()._cursor.mouse_press(*self._get_x_y_with_iframe_offset(x,y)))
 
-    def mouse_release(self, x: int, y:int):
-        with_human_mode(self._get_driver(), lambda: self._get_driver()._cursor.mouse_release(*self._get_x_y_with_iframe_offset(x,y)))
+    def mouse_press(self, x: int, y: int):
+        with_human_mode(self._get_driver(), lambda: self._get_driver(
+        )._cursor.mouse_press(*self._get_x_y_with_iframe_offset(x, y)))
+
+    def mouse_release(self, x: int, y: int):
+        with_human_mode(self._get_driver(), lambda: self._get_driver(
+        )._cursor.mouse_release(*self._get_x_y_with_iframe_offset(x, y)))
 
     def mouse_press_and_hold(self, x: int, y: int, release_condition: Optional[Callable[[], bool]] = None, release_condition_check_interval: float = 0.5, click_duration: Optional[float] = None):
-        with_human_mode(self._get_driver(), lambda: self._get_driver()._cursor.mouse_press_and_hold(*self._get_x_y_with_iframe_offset(x,y), release_condition=release_condition, release_condition_check_interval=release_condition_check_interval, click_duration=click_duration))
+        with_human_mode(self._get_driver(), lambda: self._get_driver()._cursor.mouse_press_and_hold(*self._get_x_y_with_iframe_offset(x, y),
+                        release_condition=release_condition, release_condition_check_interval=release_condition_check_interval, click_duration=click_duration))
 
-    def drag_and_drop(self, from_point: tuple[int, int], to_point: tuple[int, int] ) -> None:
-            """
-            Drags the current element to the specified destination element or selector.
+    def drag_and_drop(self, from_point: tuple[int, int], to_point: tuple[int, int]) -> None:
+        """
+        Drags the current element to the specified destination element or selector.
 
-            Args:
-                destination (Union[str, 'Element']): The target element or selector to drag the current element to.
-                wait (Optional[int], optional): The time to wait for the destination element to be available. Defaults to Wait.SHORT.
+        Args:
+            destination (Union[str, 'Element']): The target element or selector to drag the current element to.
+            wait (Optional[int], optional): The time to wait for the destination element to be available. Defaults to Wait.SHORT.
 
-            Returns:
-                None
-            """
-            with_human_mode(self._get_driver(), lambda: self._get_driver()._cursor.drag_and_drop(from_point, to_point))
-            
+        Returns:
+            None
+        """
+        with_human_mode(self._get_driver(), lambda: self._get_driver()._cursor.drag_and_drop(from_point, to_point))
 
     def get_iframe_by_link(
         self, link_regex: Optional[str] = None, wait: Optional[int] = Wait.SHORT
-    )-> Union["IframeElement", "IframeTab"]:
+    ) -> Union["IframeElement", "IframeTab"]:
         return get_iframe_elem_by_link(self._driver,  self._tab, self,  link_regex, wait)
-
 
     def is_element_present(self, selector: str, wait: Optional[int] = None) -> bool:
         return self.select(selector, wait) is not None
 
     def click(
-        self, 
-        selector: str, 
+        self,
+        selector: str,
         wait: Optional[int] = Wait.SHORT,
         skip_move: bool = False
     ) -> None:
         elem = self.wait_for_element(selector, wait)
         elem.click(skip_move=skip_move)
 
-
-
     def click_element_containing_text(
-        self, 
-        text: str, 
+        self,
+        text: str,
         wait: Optional[int] = Wait.SHORT,
         skip_move: bool = False
     ) -> None:
@@ -1037,7 +1053,6 @@ class BrowserTab:
         else:
             raise InputElementForLabelNotFoundException(label)
 
-
     def clear(self, selector: str, wait: Optional[int] = Wait.SHORT) -> None:
         """
         Clears the text from the input element specified by the selector.
@@ -1049,7 +1064,7 @@ class BrowserTab:
         """
         el = self.wait_for_element(selector, wait)
         el.clear()
-        
+
     def focus(self, selector: str, wait: Optional[int] = Wait.SHORT) -> None:
         """
         Focuses on the element specified by the selector.
@@ -1063,7 +1078,6 @@ class BrowserTab:
         """
         el = self.wait_for_element(selector, wait)
         el.focus()
-
 
     def set_value(self, selector: str, value: str, wait: Optional[int] = Wait.SHORT) -> None:
         """
@@ -1094,7 +1108,6 @@ class BrowserTab:
         """
         el = self.wait_for_element(selector, wait)
         el.set_text(text)
-        
 
     def check_element(self, selector: str, wait: Optional[int] = Wait.SHORT) -> None:
         elem = self.wait_for_element(selector, wait)
@@ -1125,7 +1138,7 @@ class BrowserTab:
     def uncheck_element_by_label(
         self, label: str, wait: Optional[int] = Wait.SHORT
     ) -> None:
-        input_elem = get_input_el(self,label, wait, "checkbox")
+        input_elem = get_input_el(self, label, wait, "checkbox")
         if input_elem:
             input_elem.uncheck_element()
         else:
@@ -1162,7 +1175,6 @@ class BrowserTab:
         """
         select_element = self.wait_for_element(selector, wait)
         perform_select_options(select_element, value, index, label)
-
 
     def get_link(
         self,
@@ -1257,7 +1269,7 @@ class BrowserTab:
             None
         """
         el = self.wait_for_element(selector, wait)
-        el.remove()    
+        el.remove()
 
     def get_attribute(
         self, selector: str, attribute: str, wait: Optional[int] = Wait.SHORT
@@ -1349,7 +1361,6 @@ class BrowserTab:
         el = self.wait_for_element(selector, wait)
         el.upload_multiple_files(file_paths)
 
-
     def get_bot_detected_by(self) -> str:
         if (
             self.title == "Just a moment..."
@@ -1357,7 +1368,7 @@ class BrowserTab:
             return Opponent.CLOUDFLARE
         if self.select('[name="cf-turnstile-response"]:not(#cf-invisible-turnstile [name="cf-turnstile-response"])', None):
             return Opponent.CLOUDFLARE
-        
+
         pmx = self.get_element_containing_text(
             "Please verify you are a human", wait=None
         )
@@ -1483,12 +1494,11 @@ class BrowserTab:
 
 class IframeTab(BrowserTab):
 
-    def __init__(self, iframe_elem:Element, config, _tab_value:Tab, _parent_tab:'BrowserTab', driver:'Driver', _browser:Browser):
+    def __init__(self, iframe_elem: Element, config, _tab_value: Tab, _parent_tab: 'BrowserTab', driver: 'Driver', _browser: Browser):
         self.iframe_elem = iframe_elem
         # iframe_elem can be none if using get_iframe_by_link and iframe is in shadowroot, todo: figure out how to get iframe el or coords of a tab, this will fix _get_bounding_rect_with_iframe_offset which will be wrong if using get_iframe_by_link and iframe is in shadowroot
         super().__init__(config, _tab_value, _parent_tab, driver, _browser)
         # self.run_cdp_command(cdp.runtime.disable())
-
 
     def _make_element(self, elem):
         return make_element(self._driver, self._tab, self, elem)
@@ -1507,7 +1517,7 @@ class IframeTab(BrowserTab):
         if selector:
             el = self.wait_for_element(selector, wait)
             el.scroll_into_view()
-        else: 
+        else:
             self._get_iframe_elem().scroll_into_view()
 
     @property
@@ -1521,13 +1531,13 @@ class IframeTab(BrowserTab):
     def get_shadow_root(self, wait: Optional[int] = Wait.SHORT):
         # Ideally, this method should not be added, but we added it because users who use self.select instead of self.select_iframe get types of Element instead of IframeTab. We added these properties so users get the correct result when they call them.
         return self.select('body').get_shadow_root(wait)
-    
+
     def move_mouse_here(self, is_jump: bool = False):
         """Moves mouse cursor to this element
-        
+
         Args:
             is_jump: If True, instantly jumps to element instead of smooth movement
-        """        
+        """
         self._get_iframe_elem().move_mouse_here(is_jump=is_jump)
 
     def _get_iframe_elem(self):
@@ -1550,13 +1560,13 @@ class IframeTab(BrowserTab):
     def tag_name(self):
         # Ideally, this method should not be added, but we added it because users who use self.select instead of self.select_iframe get types of Element instead of IframeTab. We added these properties so users get the correct result when they call them.
         return 'iframe'
-        
+
 
 class IframeElement(BrowserTab):
-    def __init__(self, elem: Element, doc_elem: Element, config, _tab_value:Tab, _parent_tab:'BrowserTab',driver:'Driver',  _browser:Browser):
-        self.elem  = elem
-        self.doc_elem  = doc_elem
-        super().__init__(config, _tab_value, _parent_tab, driver,_browser)
+    def __init__(self, elem: Element, doc_elem: Element, config, _tab_value: Tab, _parent_tab: 'BrowserTab', driver: 'Driver',  _browser: Browser):
+        self.elem = elem
+        self.doc_elem = doc_elem
+        super().__init__(config, _tab_value, _parent_tab, driver, _browser)
 
     def raise_unavailable_error(self) -> Tab:
         """
@@ -1586,7 +1596,7 @@ class IframeElement(BrowserTab):
     def prevent_fetch_spying(self) -> Any:
         self.raise_unavailable_error()
 
-    def run_js(self, script: str, args: Optional[any]=None) -> Any:
+    def run_js(self, script: str, args: Optional[any] = None) -> Any:
         return self.doc_elem.run_js(script, args)
 
     def run_on_new_document(
@@ -1602,10 +1612,10 @@ class IframeElement(BrowserTab):
 
     def after_response_received(self, handler: Callable[[str, cdp.network.Response, cdp.network.ResponseReceived], None]):
         self.raise_unavailable_error()
-        
+
     def collect_response(self, request):
         self.raise_unavailable_error()
-    
+
     def collect_responses(self, request_ids):
         self.raise_unavailable_error()
 
@@ -1614,19 +1624,17 @@ class IframeElement(BrowserTab):
 
     def select(self, selector: str, wait: Optional[int] = Wait.SHORT) -> Element:
         return self.elem.select(selector, wait)
-    
 
     def select_all(
         self, selector: str, wait: Optional[int] = Wait.SHORT
     ) -> List[Element]:
         return self.elem.select_all(selector, wait)
-    
+
     def count(
         self, selector: str, wait: Optional[int] = Wait.SHORT
     ) -> int:
-        return self._tab.count_select(selector, timeout=wait, _node = self.elem._elem)
+        return self._tab.count_select(selector, timeout=wait, _node=self.elem._elem)
 
-    
     def _make_element(self, elem):
         return make_element(self._driver, self._tab, self._parent_tab, elem)
 
@@ -1636,7 +1644,7 @@ class IframeElement(BrowserTab):
         wait: Optional[int] = Wait.SHORT,
         type: Optional[str] = None,
     ) -> Element:
-        elem = self._tab.find_iframe(text, self.elem._elem,type=type, timeout=wait)
+        elem = self._tab.find_iframe(text, self.elem._elem, type=type, timeout=wait)
         return self._make_element(elem) if elem else None
 
     def get_all_elements_containing_text(
@@ -1645,7 +1653,7 @@ class IframeElement(BrowserTab):
         wait: Optional[int] = Wait.SHORT,
         type: Optional[str] = None,
     ) -> List[Element]:
-        elems = self._tab.find_all_iframe(text, self.elem._elem,type=type, timeout=wait)
+        elems = self._tab.find_all_iframe(text, self.elem._elem, type=type, timeout=wait)
         return [self._make_element(e) for e in elems]
 
     def get_element_with_exact_text(
@@ -1654,7 +1662,7 @@ class IframeElement(BrowserTab):
         wait: Optional[int] = Wait.SHORT,
         type: Optional[str] = None,
     ) -> Element:
-        elem = self._tab.find_iframe(text, self.elem._elem,type=type, timeout=wait, exact_match=True)
+        elem = self._tab.find_iframe(text, self.elem._elem, type=type, timeout=wait, exact_match=True)
         return self._make_element(elem) if elem else None
 
     def get_all_elements_with_exact_text(
@@ -1663,30 +1671,28 @@ class IframeElement(BrowserTab):
         wait: Optional[int] = Wait.SHORT,
         type: Optional[str] = None,
     ) -> List[Element]:
-        elems = self._tab.find_all_iframe(text, self.elem._elem,type=type, timeout=wait, exact_match=True)
+        elems = self._tab.find_all_iframe(text, self.elem._elem, type=type, timeout=wait, exact_match=True)
         return [self._make_element(e) for e in elems]
-
 
     def _get_driver(self):
         return self._driver
 
-
     def move_mouse_here(self, is_jump: bool = False):
         """Moves mouse cursor to this element
-        
+
         Args:
             is_jump: If True, instantly jumps to element instead of smooth movement
-        """        
+        """
         self.elem.move_mouse_here(is_jump=is_jump)
 
     def get_iframe_by_link(
         self, link_regex: Optional[str] = None, wait: Optional[int] = Wait.SHORT
-    )->  Union["IframeElement", "IframeTab"]:
+    ) -> Union["IframeElement", "IframeTab"]:
         return get_iframe_elem_by_link(self._driver,  self._tab, self._parent_tab, link_regex, wait)
 
     def click_element_containing_text(
-        self, 
-        text: str, 
+        self,
+        text: str,
         wait: Optional[int] = Wait.SHORT,
         skip_move: bool = False
     ) -> None:
@@ -1704,8 +1710,8 @@ class IframeElement(BrowserTab):
         element_contains_text: Optional[str] = None,
         wait: Optional[int] = Wait.SHORT,
     ) -> str:
-        elems = self._tab.select_all(selector, timeout=wait, node_name="a", _node = self.elem._elem)
-        
+        elems = self._tab.select_all(selector, timeout=wait, node_name="a", _node=self.elem._elem)
+
         for elem in elems:
             if url_contains_text and url_contains_text not in elem.href:
                 continue
@@ -1723,7 +1729,7 @@ class IframeElement(BrowserTab):
         wait: Optional[int] = Wait.SHORT,
     ) -> List[str]:
         elems = self._tab.select_all(
-            selector if selector else "a[href]", timeout=wait, node_name="a", _node = self.elem._elem
+            selector if selector else "a[href]", timeout=wait, node_name="a", _node=self.elem._elem
         )
 
         if url_contains_text:
@@ -1739,7 +1745,7 @@ class IframeElement(BrowserTab):
         element_contains_text: Optional[str] = None,
         wait: Optional[int] = Wait.SHORT,
     ) -> str:
-        elems = self._tab.select_all(selector, timeout=wait, node_name="img",  _node = self.elem._elem)
+        elems = self._tab.select_all(selector, timeout=wait, node_name="img",  _node=self.elem._elem)
 
         for elem in elems:
             if url_contains_text and url_contains_text not in elem.src:
@@ -1758,7 +1764,7 @@ class IframeElement(BrowserTab):
         wait: Optional[int] = Wait.SHORT,
     ) -> List[str]:
         elems = self._tab.select_all(
-            selector if selector else "img[src]", timeout=wait, node_name="img", _node = self.elem._elem
+            selector if selector else "img[src]", timeout=wait, node_name="img", _node=self.elem._elem
         )
 
         if url_contains_text:
@@ -1786,13 +1792,12 @@ class IframeElement(BrowserTab):
 
     def __repr__(self):
         return self.elem.__repr__()
-    
 
     def _get_bounding_rect_with_iframe_offset(self):
         rect = self._parent_tab._get_bounding_rect_with_iframe_offset()
         iframe_elem_rect = self.get_bounding_rect()
         return merge_rects(iframe_elem_rect, rect,)
-    
+
     def get_bounding_rect(self, absolute=False):
         # Ideally, this method should not be added, but we added it because users who use self.select instead of self.select_iframe get types of Element instead of IframeTab. We added these properties so users get the correct result when they call them.
         return self.elem.get_bounding_rect(absolute)
@@ -1816,6 +1821,7 @@ class IframeElement(BrowserTab):
         # Ideally, this method should not be added, but we added it because users who use self.select instead of self.select_iframe get types of Element instead of IframeTab. We added these properties so users get the correct result when they call them.
         return 'iframe'
 
+
 def get_iframe_tab(driver, internal_elem):
     iframe_tab = None
     all_targets = driver._browser.targets
@@ -1826,42 +1832,39 @@ def get_iframe_tab(driver, internal_elem):
             break
     return iframe_tab
 
-
-
-
-
     # wait_till_document_is_ready(iframe_tab, True)
 
 
-def get_iframe_element_or_tab(iframe_tab:Tab, driver:'Driver', current_tab:Tab, _parent_tab:BrowserTab, internal_elem:CoreElement):
-    elem = Element(driver, current_tab,  _parent_tab,internal_elem)
+def get_iframe_element_or_tab(iframe_tab: Tab, driver: 'Driver', current_tab: Tab, _parent_tab: BrowserTab, internal_elem: CoreElement):
+    elem = Element(driver, current_tab,  _parent_tab, internal_elem)
     if iframe_tab:
-        
+
         return IframeTab(elem, driver.config, iframe_tab, _parent_tab, driver, driver._browser)
     internal_elem.tree = internal_elem.content_document
-    doc_elem = Element(driver,   current_tab, _parent_tab, CoreElement(internal_elem.content_document, current_tab, internal_elem.tree))
+    doc_elem = Element(driver,   current_tab, _parent_tab, CoreElement(
+        internal_elem.content_document, current_tab, internal_elem.tree))
     return IframeElement(elem, doc_elem, driver.config, current_tab,  _parent_tab, driver, driver._browser)
 
-def create_iframe_element(driver:'Driver', current_tab:Tab, _parent_tab:BrowserTab, internal_elem:CoreElement):
+
+def create_iframe_element(driver: 'Driver', current_tab: Tab, _parent_tab: BrowserTab, internal_elem: CoreElement):
     iframe_tab = get_iframe_tab(driver, internal_elem)
     return get_iframe_element_or_tab(iframe_tab, driver, current_tab, _parent_tab, internal_elem)
 
 
-def get_iframe_elem_by_link(driver:'BrowserTab', current_tab:Tab, _parent_tab:BrowserTab, link, timeout):
+def get_iframe_elem_by_link(driver: 'BrowserTab', current_tab: Tab, _parent_tab: BrowserTab, link, timeout):
     iframe_tab = get_iframe_tab_by_link(driver, link, timeout)
     el = select_and_find_iframe_el(driver, link)
     if iframe_tab:
         if el:
-          if isinstance(el, IframeTab):
-            return el
-          else: 
-            return get_iframe_element_or_tab(iframe_tab, driver, current_tab, _parent_tab, el._elem)
+            if isinstance(el, IframeTab):
+                return el
+            else:
+                return get_iframe_element_or_tab(iframe_tab, driver, current_tab, _parent_tab, el._elem)
         else:
-          return IframeTab(None, driver.config, iframe_tab, _parent_tab, driver, driver._browser)
-        
-            
-    
+            return IframeTab(None, driver.config, iframe_tab, _parent_tab, driver, driver._browser)
+
     return el
+
 
 def select_and_find_iframe_el(driver, link):
     iframes = driver.select_all("iframe")
@@ -1925,19 +1928,21 @@ def get_for_input_selector(type, for_attr):
     else:
         return f"input[id='{for_attr}'], textarea[id='{for_attr}'], select[id='{for_attr}']"
 
+
 def get_title_safe(driver):
-        while True:
-            try:
-                el = driver.select("title", None)
-                if el is not None:
-                    return el.text
-                else:
-                    return driver.run_js("return document.title")
-                
-            except DetachedElementException:
-                print("Title element is detached, Regetting")
-                pass
-            
+    while True:
+        try:
+            el = driver.select("title", None)
+            if el is not None:
+                return el.text
+            else:
+                return driver.run_js("return document.title")
+
+        except DetachedElementException:
+            print("Title element is detached, Regetting")
+            pass
+
+
 def get_inside_input_selector(type):
     if type == "text":
         return "input,textarea"
@@ -1986,9 +1991,6 @@ def get_input_el(driver, label, wait, type):
     return None
 
 
-
-
-
 def base64_decode(encoded_str):
     from base64 import b64decode
     """
@@ -2003,6 +2005,7 @@ def base64_decode(encoded_str):
     decoded_str = decoded_bytes.decode("utf-8")
 
     return decoded_str
+
 
 class Response(ContraDict):
     def __init__(self, request_id, content, is_base_64):
@@ -2041,16 +2044,17 @@ class Response(ContraDict):
     def __repr__(self):
         return f"Response(request_id={self.request_id}, content={self.content}, is_base_64={self.is_base_64})"
 
+
 class Responses(list):
-        def __init__(self, driver:'Driver'):
-            super().__init__()
-            self.driver = driver
+    def __init__(self, driver: 'Driver'):
+        super().__init__()
+        self.driver = driver
 
-        def collect(self):
-            return self.driver.collect_responses(self)
+    def collect(self):
+        return self.driver.collect_responses(self)
 
-        def clear(self):
-            super().clear()
+    def clear(self):
+        super().clear()
 
 
 def generate_random_string(length: int = 32) -> str:
@@ -2058,6 +2062,7 @@ def generate_random_string(length: int = 32) -> str:
     import string
     letters = string.ascii_letters
     return ''.join(random.choice(letters) for i in range(length))
+
 
 class Driver(BrowserTab):
     def __init__(
@@ -2072,7 +2077,7 @@ class Driver(BrowserTab):
         wait_for_complete_page_load=True,
         extensions=[],
         arguments=[],
-        remove_default_browser_check_argument = False,
+        remove_default_browser_check_argument=False,
         user_agent=None,
         window_size=None,
         lang=None,
@@ -2111,7 +2116,6 @@ class Driver(BrowserTab):
 
         super().__init__(self.config, self._tab_value,  None, self, self._browser)
 
-
     def _make_element(self, elem):
         return make_element(self._driver, self._tab, self, elem)
 
@@ -2127,21 +2131,16 @@ class Driver(BrowserTab):
         self._is_human_mode_enabled = True
         if not self._dot_name:
             self._dot_name = generate_random_string()
-        
+
         if not self._cursor:
             self._cursor = WebCursor(self, self._dot_name)
 
     def disable_human_mode(self):
         self._is_human_mode_enabled = False
 
-
-
-
     @property
     def user_agent(self):
         return self.run_js("return navigator.userAgent")
-
-
 
     @property
     def profile(self):
@@ -2164,102 +2163,102 @@ class Driver(BrowserTab):
             Profiles.set_profile(self.config.profile, value)
         else:
             raise InvalidProfileException()
-        
+
     def get(self, link: str, bypass_cloudflare=False, js_to_run_before_new_document: str = None, wait: Optional[int] = None,  timeout=60) -> Tab:
-            self.run_on_new_document(js_to_run_before_new_document)
-            self._tab = self._browser.get(link, )
-            self.sleep(wait)
-            wait_till_document_is_ready(self._tab, self.config.wait_for_complete_page_load, timeout=timeout)
-            if bypass_cloudflare:
-                self.detect_and_bypass_cloudflare()
-            return self._tab
+        self.run_on_new_document(js_to_run_before_new_document)
+        self._tab = self._browser.get(link, )
+        self.sleep(wait)
+        wait_till_document_is_ready(self._tab, self.config.wait_for_complete_page_load, timeout=timeout)
+        if bypass_cloudflare:
+            self.detect_and_bypass_cloudflare()
+        return self._tab
 
     def open_link_in_new_tab(self, link: str, bypass_cloudflare=False, js_to_run_before_new_document: str = None, wait: Optional[int] = None,  timeout=60) -> Tab:
-            self.run_on_new_document(js_to_run_before_new_document)
-            self._tab = self._browser.get(link, new_tab=True, )
-            self.sleep(wait)
-            wait_till_document_is_ready(self._tab, self.config.wait_for_complete_page_load, timeout=timeout)
-            if bypass_cloudflare:
-                self.detect_and_bypass_cloudflare()
-            return self._tab
+        self.run_on_new_document(js_to_run_before_new_document)
+        self._tab = self._browser.get(link, new_tab=True, )
+        self.sleep(wait)
+        wait_till_document_is_ready(self._tab, self.config.wait_for_complete_page_load, timeout=timeout)
+        if bypass_cloudflare:
+            self.detect_and_bypass_cloudflare()
+        return self._tab
 
     def get_via(
-            self,
-            link: str,
-            referer: str,
-            bypass_cloudflare=False,
-            js_to_run_before_new_document: str = None,
-            wait: Optional[int] = None,
-            timeout=60,
-        ) -> Tab:
-            self.run_on_new_document(js_to_run_before_new_document)
-            referer = referer.rstrip("/") + "/"
-            self._tab = self._browser.get(link, referrer=referer, )
-            self.sleep(wait)
-            wait_till_document_is_ready(self._tab, self.config.wait_for_complete_page_load, timeout=timeout)
+        self,
+        link: str,
+        referer: str,
+        bypass_cloudflare=False,
+        js_to_run_before_new_document: str = None,
+        wait: Optional[int] = None,
+        timeout=60,
+    ) -> Tab:
+        self.run_on_new_document(js_to_run_before_new_document)
+        referer = referer.rstrip("/") + "/"
+        self._tab = self._browser.get(link, referrer=referer, )
+        self.sleep(wait)
+        wait_till_document_is_ready(self._tab, self.config.wait_for_complete_page_load, timeout=timeout)
 
-            if bypass_cloudflare:
-                self.detect_and_bypass_cloudflare()
-            return self._tab
+        if bypass_cloudflare:
+            self.detect_and_bypass_cloudflare()
+        return self._tab
 
     def google_get(
-            self,
-            link: str,
-            bypass_cloudflare=False,
-            js_to_run_before_new_document: str = None,
-            wait: Optional[int] = None,
-            accept_google_cookies: bool = False,
-            timeout=60,
-        ) -> Tab:
-            if accept_google_cookies:
-                # No need to accept cookies multiple times
-                if (
-                    hasattr(self, "has_accepted_google_cookies")
-                    and self.has_accepted_google_cookies
-                ):
-                    pass
+        self,
+        link: str,
+        bypass_cloudflare=False,
+        js_to_run_before_new_document: str = None,
+        wait: Optional[int] = None,
+        accept_google_cookies: bool = False,
+        timeout=60,
+    ) -> Tab:
+        if accept_google_cookies:
+            # No need to accept cookies multiple times
+            if (
+                hasattr(self, "has_accepted_google_cookies")
+                and self.has_accepted_google_cookies
+            ):
+                pass
+            else:
+                self.get("https://www.google.com/", js_to_run_before_new_document=js_to_run_before_new_document)
+                if '/sorry/' in self.current_url:
+                    print('Blocked by Google')
                 else:
-                    self.get("https://www.google.com/", js_to_run_before_new_document=js_to_run_before_new_document)
-                    if '/sorry/' in self.current_url:
-                        print('Blocked by Google')
-                    else:
-                        perform_accept_google_cookies_action(self)
-                        self.has_accepted_google_cookies = True
-            self.get_via(
-                link,
-                "https://www.google.com/",
-                bypass_cloudflare=bypass_cloudflare,
-                wait=wait,
-                js_to_run_before_new_document=js_to_run_before_new_document,
-                timeout=timeout,
-            )
-            return self._tab
+                    perform_accept_google_cookies_action(self)
+                    self.has_accepted_google_cookies = True
+        self.get_via(
+            link,
+            "https://www.google.com/",
+            bypass_cloudflare=bypass_cloudflare,
+            wait=wait,
+            js_to_run_before_new_document=js_to_run_before_new_document,
+            timeout=timeout,
+        )
+        return self._tab
 
     def get_via_this_page(
-            self, link: str, bypass_cloudflare=False, js_to_run_before_new_document: str = None, wait: Optional[int] = None,  timeout=60
-        ) -> Tab:
-            
-            self.run_on_new_document(js_to_run_before_new_document)
-            currenturl = self.current_url
-            self.run_js(f'window.location.href = "{link}";')
-            if currenturl != link:
-                while True:
-                    if currenturl != self.current_url:
-                        break
-                    time.sleep(0.1)
-            self.sleep(wait)
+        self, link: str, bypass_cloudflare=False, js_to_run_before_new_document: str = None, wait: Optional[int] = None,  timeout=60
+    ) -> Tab:
 
-            wait_till_document_is_ready(self._tab, self.config.wait_for_complete_page_load, timeout=timeout)
+        self.run_on_new_document(js_to_run_before_new_document)
+        currenturl = self.current_url
+        self.run_js(f'window.location.href = "{link}";')
+        if currenturl != link:
+            while True:
+                if currenturl != self.current_url:
+                    break
+                time.sleep(0.1)
+        self.sleep(wait)
 
-            if bypass_cloudflare:
-                self.detect_and_bypass_cloudflare()
+        wait_till_document_is_ready(self._tab, self.config.wait_for_complete_page_load, timeout=timeout)
 
-            return self._tab
+        if bypass_cloudflare:
+            self.detect_and_bypass_cloudflare()
+
+        return self._tab
+
     def reload(self, js_to_run_before_new_document=None) -> Tab:
         self._tab.reload(script_to_evaluate_on_load=make_iife(load_script_if_js_file(js_to_run_before_new_document)))
         wait_till_document_is_ready(self._tab, self.config.wait_for_complete_page_load)
         return self._tab
-
 
     def is_in_page(self, target: str) -> bool:
         return self.wait_for_page_to_be(target, wait=None, raise_exception=False)
@@ -2316,7 +2315,6 @@ class Driver(BrowserTab):
     def open_in_devtools(self) -> None:
         self._tab.open_external_inspector()
 
-
     def sleep(self, n: int) -> None:
         sleep_for_n_seconds(n)
 
@@ -2331,6 +2329,7 @@ class Driver(BrowserTab):
 
     def block_urls(self, urls) -> None:
         self._tab.block_urls(urls)
+
     def block_images_and_css(self) -> None:
         self._tab.block_images_and_css()
 
@@ -2342,7 +2341,6 @@ class Driver(BrowserTab):
 
     def allow_insecure_connections(self) -> None:
         self._tab.bypass_insecure_connection_warning()
-
 
     def close(self) -> None:
         if self.config.tiny_profile:
