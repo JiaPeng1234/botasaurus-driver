@@ -381,7 +381,7 @@ class Element:
         """
         if isinstance(to_point, (list, tuple)):
             with_human_mode(self._driver, lambda: self._driver._cursor.drag_and_drop(
-                self, *self._get_x_y_with_iframe_offset(*to_point)))
+                self, self._get_x_y_with_iframe_offset(*to_point)))
         else:
             with_human_mode(self._driver, lambda: self._driver._cursor.drag_and_drop(self, to_point))
 
