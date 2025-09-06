@@ -170,6 +170,12 @@ class JavascriptRuntimeException(JavascriptException):
     def __str__(self) -> str:
         exception_msg = f"{self.msg}"
         return exception_msg
+
+
+class ChromeAttachmentException(DriverException):
+    """Raised when unable to attach to Chrome instance at specified port"""
+    def __init__(self, message):
+        super().__init__(message)
     
 
 def handle_exception(core, exception):

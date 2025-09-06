@@ -150,6 +150,8 @@ class Config:
         beep=False,
         host="127.0.0.1", 
         port=None,
+        attach_to_port=None,
+        keep_open_after_finish=False,
     ):
         if tiny_profile and profile is None:
             raise ValueError("Profile must be given when using tiny profile")
@@ -183,10 +185,15 @@ class Config:
 
         self.lang = lang
         self.beep = beep
+        self.attach_to_port = attach_to_port
+        self.keep_open_after_finish = keep_open_after_finish
 
         # Customizable host and port
         self.host = host
-        self.port = port if port is not None else free_port()  # Use provided port or allocate a free one
+        if attach_to_port:
+            self.port = attach_to_port  # Use specified port for attachment
+        else:
+            self.port = port if port is not None else free_port()  # Use provided port or allocate a free one
 
         if self.tiny_profile or not self.profile:
             self.profile_directory = temp_profile_dir(str(self.port) + "_")

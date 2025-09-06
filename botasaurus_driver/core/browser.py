@@ -15,6 +15,7 @@ from .. import cdp
 from . import util
 from . import tab
 from .config import PathLike, Config, free_port, is_posix
+from ..exceptions import ChromeAttachmentException
 from .connection import Connection
 from .custom_storage_cdp import get_cookies, set_cookies
 from .env import is_docker
@@ -98,6 +99,7 @@ class Browser:
 
     config: Config
     connection: Connection
+    is_attached: bool = False  # Track if we attached vs started Chrome
 
     @classmethod
     def create(
@@ -322,6 +324,14 @@ class Browser:
 
         self.config.host = self.config.host or "127.0.0.1"
         self.config.port = self.config.port or free_port()
+        
+        if self.config.attach_to_port:
+            return self._attach_to_port(self.config.attach_to_port)
+        else:
+            return self._start_new_chrome()
+            
+    def _start_new_chrome(self) -> Browser:
+        """Start a new Chrome instance"""
         exe = self.config.browser_executable_path
         params = self.config()
 
@@ -358,6 +368,72 @@ class Browser:
         self.connection.send(cdp.target.set_discover_targets(discover=True), wait_for_response=False)
         # self.connection.wait_to_be_idle()
         self.update_targets()
+        
+    def _attach_to_port(self, port) -> Browser:
+        """Attach to existing Chrome instance at specific port"""
+        chrome_url = f"http://{self.config.host}:{port}/json/version"
+        
+        try:
+            req = urllib.request.Request(chrome_url)
+            with urllib.request.urlopen(req, timeout=0.05) as response:  # 50ms timeout
+                if response.status != 200:
+                    raise ChromeAttachmentException(f"Chrome debugging endpoint not responding at port {port}")
+                    
+                data = response.read().decode('utf-8')
+                chrome_info = json.loads(data)
+                
+                if 'webSocketDebuggerUrl' not in chrome_info:
+                    raise ChromeAttachmentException(f"Invalid Chrome debugging response at port {port}")
+                    
+        except (URLError, HTTPError) as e:
+            raise ChromeAttachmentException(
+                f"Cannot connect to Chrome at port {port}. "
+                f"Make sure Chrome is running with: chrome --remote-debugging-port={port}"
+            )
+        except Exception as e:
+            raise ChromeAttachmentException(f"Error connecting to Chrome at port {port}: {str(e)}")
+        
+        # Successful attachment
+        self.info = chrome_info
+        self.is_attached = True
+        self._process = None  # We don't own the process
+        
+        # Warn about profile if different
+        # TODO: check mismatch profile
+        if self.config.profile:
+            self._warn_profile_mismatch()
+        
+        # Establish connection (same as normal startup)
+        self.connection = Connection(chrome_info['webSocketDebuggerUrl'], _owner=self)
+
+        self.connection.handlers[cdp.target.TargetInfoChanged] = [
+            self._handle_target_update
+        ]
+        self.connection.handlers[cdp.target.TargetCreated] = [
+            self._handle_target_update
+        ]
+        self.connection.handlers[cdp.target.TargetDestroyed] = [
+            self._handle_target_update
+        ]
+        self.connection.handlers[cdp.target.TargetCrashed] = [
+            self._handle_target_update
+        ]
+
+        # Register instance (same as normal startup)
+        instances = util.get_registered_instances()
+        instances.add(self)
+
+        # Setup targets
+        self.connection.send(cdp.target.set_discover_targets(discover=True), wait_for_response=False)
+        self.update_targets()
+        
+    def _warn_profile_mismatch(self):
+        """Warn user about profile differences when attaching"""
+        print(f"⚠️  WARNING: Attaching to existing Chrome instance")
+        print(f"   Your specified profile: {self.config.profile}")
+        print(f"   Chrome may have different profile/cookies/data")
+        print(f"   Continuing with existing Chrome profile...")
+        
     def create_chrome_with_retries(self, exe, params):
         @retry_if_is_error()
         def run():
@@ -496,19 +572,27 @@ class Browser:
                     del self._i
 
     def close(self):
-        # close gracefully
-        self.close_tab_connections()
-        self.close_chrome()
-        self.close_browser_connection()
-        if self._process:
-            if not wait_for_graceful_close(self._process):
-                terminate_process(self._process)
-        self._process = None
-        self._process_pid = None
+        # Attached instance, keep it open - only close our connection
+        if self.config.keep_open_after_finish:
+            self.close_tab_connections()
+            if self.connection:
+                self.connection.close()
+        else:
+            # Normal close behavior
+            self.close_tab_connections()
+            self.close_chrome()
+            self.close_browser_connection()
+            if self._process:
+                if not wait_for_graceful_close(self._process):
+                    terminate_process(self._process)
+            self._process = None
+            self._process_pid = None
 
-        if self.config.is_temporary_profile:
-            delete_profile(self.config.profile_directory)
-        self.config.close()
+            if self.config.is_temporary_profile:
+                delete_profile(self.config.profile_directory)
+            self.config.close()
+
+        # Always remove from instances registry
         instances = util.get_registered_instances()
         try:
             instances.remove(self)
@@ -627,4 +711,17 @@ class CookieJar:
         connection.send(cdp.storage.clear_cookies())
 
 
-atexit.register(util.deconstruct_browser)
+def _deconstruct_all_browsers():
+    """Modified deconstruct that respects keep_open_after_finish setting"""
+    instances = util.get_registered_instances()
+
+    for instance in list(instances):
+        # Skip instances marked to keep open
+        if getattr(instance.config, 'keep_open_after_finish', False):
+            continue
+
+        # Close instances that should be closed
+        if not instance.stopped:
+            instance.close()
+
+atexit.register(_deconstruct_all_browsers)

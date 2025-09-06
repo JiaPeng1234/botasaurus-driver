@@ -2084,6 +2084,8 @@ class Driver(BrowserTab):
         beep=False,
         host=None,
         port=None,
+        attach_to_port=None,
+        keep_open_after_finish=False,
     ):
         self.config = Config(
             headless=headless,
@@ -2103,6 +2105,8 @@ class Driver(BrowserTab):
             beep=beep,
             host=host,
             port=port,
+            attach_to_port=attach_to_port,
+            keep_open_after_finish=keep_open_after_finish,
         )
 
         self._tab_value: Tab = None
