@@ -59,9 +59,9 @@ def load_script_if_js_file(script):
 
 
 class Wait:
-    SHORT = 4
-    LONG = 8
-    VERY_LONG = 16
+    SHORT = 2
+    LONG = 6
+    VERY_LONG = 12
 
 
 def make_element(driver: 'Driver', current_tab: Tab, _parent_tab: 'BrowserTab',  internal_elem: CoreElement):
